@@ -577,6 +577,9 @@ const AUTH_GROUPS = [
   ]},
   { value: "opencode-zen", label: "OpenCode Zen", hint: "API key", options: [
     { value: "opencode-zen", label: "OpenCode Zen (multi-model proxy)" }
+  ]},
+  { value: "custom", label: "Custom (OpenAI-compatible)", hint: "Configure below", options: [
+    { value: "skip-auth", label: "Skip (configure provider below)" }
   ]}
 ];
 
@@ -620,7 +623,7 @@ function buildOnboardArgs(payload) {
     payload.flow || "quickstart",
   ];
 
-  if (payload.authChoice) {
+  if (payload.authChoice && payload.authChoice !== "skip-auth") {
     args.push("--auth-choice", payload.authChoice);
 
     // Map secret to correct flag for common choices.
@@ -657,6 +660,16 @@ function buildOnboardArgs(payload) {
       // This is the Anthropic setup-token flow.
       if (!secret) throw new Error("Missing auth secret for authChoice=token");
       args.push("--token-provider", "anthropic", "--token", secret);
+    }
+  }
+
+  if (payload.authChoice === "skip-auth") {
+    const hasCustom =
+      Boolean((payload.customProviderId || "").trim()) &&
+      Boolean((payload.customProviderBaseUrl || "").trim());
+    const chosenFlow = (payload.flow || "quickstart").trim();
+    if (hasCustom && chosenFlow !== "manual") {
+      args.push("--flow", "manual");
     }
   }
 

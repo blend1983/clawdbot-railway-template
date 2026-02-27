@@ -7,6 +7,8 @@
   var authGroupEl = document.getElementById('authGroup');
   var authChoiceEl = document.getElementById('authChoice');
   var logEl = document.getElementById('log');
+  var customProviderIdEl = document.getElementById('customProviderId');
+  var customProviderBaseUrlEl = document.getElementById('customProviderBaseUrl');
 
   // Debug console
   var consoleCmdEl = document.getElementById('consoleCmd');
@@ -184,6 +186,18 @@
       logEl.textContent += '\nError: ' + String(e) + '\n';
     });
   };
+
+  function maybeSelectSkip() {
+    var id = customProviderIdEl && customProviderIdEl.value ? customProviderIdEl.value.trim() : '';
+    var url = customProviderBaseUrlEl && customProviderBaseUrlEl.value ? customProviderBaseUrlEl.value.trim() : '';
+    if (id && url) {
+      authGroupEl.value = 'custom';
+      if (typeof authGroupEl.onchange === 'function') authGroupEl.onchange();
+      authChoiceEl.value = 'skip-auth';
+    }
+  }
+  if (customProviderIdEl) customProviderIdEl.oninput = maybeSelectSkip;
+  if (customProviderBaseUrlEl) customProviderBaseUrlEl.oninput = maybeSelectSkip;
 
   // Debug console runner
   function runConsole() {
