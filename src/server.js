@@ -791,7 +791,7 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
           baseUrl,
           api,
           apiKey: apiKeyEnv ? "${" + apiKeyEnv + "}" : undefined,
-          models: modelId ? [{ id: modelId, name: modelId }] : undefined,
+          models: modelId ? [{ id: modelId, name: modelId }] : [],
         };
 
         // Ensure we merge in this provider rather than replacing other providers.
