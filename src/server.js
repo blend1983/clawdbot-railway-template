@@ -1081,6 +1081,12 @@ app.post("/setup/api/console/run", requireSetupAuth, async (req, res) => {
     if (cmd === "openclaw.config.get") {
       if (!arg) return res.status(400).json({ ok: false, error: "Missing config path" });
       const r = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", arg]));
+
+      // Treat missing config paths as empty values (not 500 errors).
+      if (r.code !== 0 && r.output.includes("Config path not found")) {
+        return res.json({ ok: true, output: "" });
+      }
+
       return res.status(r.code === 0 ? 200 : 500).json({ ok: r.code === 0, output: redactSecrets(r.output) });
     }
 
