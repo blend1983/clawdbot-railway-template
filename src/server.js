@@ -846,9 +846,9 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
         };
         const set = await runCmd(
           OPENCLAW_NODE,
-          clawArgs(["config", "set", "--json", "channels.telegram", JSON.stringify(cfgObj)]),
+          clawArgs(["config", "set", "--json", "plugins.entries.telegram", JSON.stringify(cfgObj)]),
         );
-        const get = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "channels.telegram"]));
+        const get = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "plugins.entries.telegram"]));
 
         // Best-effort: enable the telegram plugin explicitly (some builds require this even when configured).
         const plug = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "enable", "telegram"]));
@@ -876,9 +876,9 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
         };
         const set = await runCmd(
           OPENCLAW_NODE,
-          clawArgs(["config", "set", "--json", "channels.discord", JSON.stringify(cfgObj)]),
+          clawArgs(["config", "set", "--json", "plugins.entries.discord", JSON.stringify(cfgObj)]),
         );
-        const get = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "channels.discord"]));
+        const get = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "plugins.entries.discord"]));
         const plug = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "enable", "discord"]));
         extra += `\n[discord config] exit=${set.code} (output ${set.output.length} chars)\n${set.output || "(no output)"}`;
         extra += `\n[discord verify] exit=${get.code} (output ${get.output.length} chars)\n${get.output || "(no output)"}`;
@@ -932,11 +932,15 @@ app.get("/setup/api/debug", requireSetupAuth, async (_req, res) => {
   const help = await runCmd(OPENCLAW_NODE, clawArgs(["channels", "add", "--help"]));
 
   // Channel config checks (redact secrets before returning to client)
+  // Check both legacy "channels" and new "plugins.entries" locations.
   const tg = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "channels.telegram"]));
-  const dc = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "channels.discord"]));
+  const tgPlugin = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "plugins.entries.telegram"]));
 
-  const tgOut = redactSecrets(tg.output || "");
-  const dcOut = redactSecrets(dc.output || "");
+  const dc = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "channels.discord"]));
+  const dcPlugin = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "plugins.entries.discord"]));
+
+  const tgOut = redactSecrets(tg.output || "") + (tgPlugin.output ? "\n[plugin config]: " + redactSecrets(tgPlugin.output) : "");
+  const dcOut = redactSecrets(dc.output || "") + (dcPlugin.output ? "\n[plugin config]: " + redactSecrets(dcPlugin.output) : "");
 
   res.json({
     wrapper: {
@@ -968,14 +972,22 @@ app.get("/setup/api/debug", requireSetupAuth, async (_req, res) => {
       channels: {
         telegram: {
           exit: tg.code,
-          configuredEnabled: /"enabled"\s*:\s*true/.test(tg.output || "") || /enabled\s*[:=]\s*true/.test(tg.output || ""),
-          botTokenPresent: /(\d{5,}:[A-Za-z0-9_-]{10,})/.test(tg.output || ""),
+          configuredEnabled:
+            /"enabled"\s*:\s*true/.test(tg.output || "") || /enabled\s*[:=]\s*true/.test(tg.output || "") ||
+            /"enabled"\s*:\s*true/.test(tgPlugin.output || "") || /enabled\s*[:=]\s*true/.test(tgPlugin.output || ""),
+          botTokenPresent:
+            /(\d{5,}:[A-Za-z0-9_-]{10,})/.test(tg.output || "") ||
+            /(\d{5,}:[A-Za-z0-9_-]{10,})/.test(tgPlugin.output || ""),
           output: tgOut,
         },
         discord: {
           exit: dc.code,
-          configuredEnabled: /"enabled"\s*:\s*true/.test(dc.output || "") || /enabled\s*[:=]\s*true/.test(dc.output || ""),
-          tokenPresent: /"token"\s*:\s*"?\S+"?/.test(dc.output || "") || /token\s*[:=]\s*\S+/.test(dc.output || ""),
+          configuredEnabled:
+            /"enabled"\s*:\s*true/.test(dc.output || "") || /enabled\s*[:=]\s*true/.test(dc.output || "") ||
+            /"enabled"\s*:\s*true/.test(dcPlugin.output || "") || /enabled\s*[:=]\s*true/.test(dcPlugin.output || ""),
+          tokenPresent:
+            /"token"\s*:\s*"?\S+"?/.test(dc.output || "") || /token\s*[:=]\s*\S+/.test(dc.output || "") ||
+            /"token"\s*:\s*"?\S+"?/.test(dcPlugin.output || "") || /token\s*[:=]\s*\S+/.test(dcPlugin.output || ""),
           output: dcOut,
         },
       },
