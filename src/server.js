@@ -848,6 +848,12 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
           OPENCLAW_NODE,
           clawArgs(["config", "set", "--json", "plugins.entries.telegram", JSON.stringify(cfgObj)]),
         );
+        // Also write to legacy location for compatibility.
+        await runCmd(
+          OPENCLAW_NODE,
+          clawArgs(["config", "set", "--json", "channels.telegram", JSON.stringify(cfgObj)]),
+        );
+
         const get = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "plugins.entries.telegram"]));
 
         // Best-effort: enable the telegram plugin explicitly (some builds require this even when configured).
@@ -867,6 +873,7 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
         const cfgObj = {
           enabled: true,
           token,
+          botToken: token, // Provide both for compatibility
           groupPolicy: "allowlist",
           dm: {
             policy: "pairing",
@@ -878,6 +885,12 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
           OPENCLAW_NODE,
           clawArgs(["config", "set", "--json", "plugins.entries.discord", JSON.stringify(cfgObj)]),
         );
+        // Also write to legacy location for compatibility.
+        await runCmd(
+          OPENCLAW_NODE,
+          clawArgs(["config", "set", "--json", "channels.discord", JSON.stringify(cfgObj)]),
+        );
+
         const get = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "plugins.entries.discord"]));
         const plug = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "enable", "discord"]));
         extra += `\n[discord config] exit=${set.code} (output ${set.output.length} chars)\n${set.output || "(no output)"}`;
