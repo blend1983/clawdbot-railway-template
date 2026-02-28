@@ -800,6 +800,11 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
           OPENCLAW_NODE,
           clawArgs(["config", "set", "--json", `models.providers.${providerId}`, JSON.stringify(providerCfg)]),
         );
+        // Prefer using the custom provider for the main agent unless the operator overrides later.
+        await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "agents.main.provider", providerId]));
+        if (modelId) {
+          await runCmd(OPENCLAW_NODE, clawArgs(["config", "set", "agents.main.model", modelId]));
+        }
         extra += `\n[custom provider] exit=${set.code} (output ${set.output.length} chars)\n${set.output || "(no output)"}`;
       }
     }
