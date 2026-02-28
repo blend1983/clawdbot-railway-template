@@ -76,7 +76,7 @@ process.env.OPENCLAW_GATEWAY_TOKEN = OPENCLAW_GATEWAY_TOKEN;
 const INTERNAL_GATEWAY_PORT = Number.parseInt(process.env.INTERNAL_GATEWAY_PORT ?? "18789", 10);
 const INTERNAL_GATEWAY_HOST = process.env.INTERNAL_GATEWAY_HOST ?? "127.0.0.1";
 const GATEWAY_TARGET = `http://${INTERNAL_GATEWAY_HOST}:${INTERNAL_GATEWAY_PORT}`;
-const GATEWAY_READY_TIMEOUT_MS = Number.parseInt(process.env.OPENCLAW_GATEWAY_READY_TIMEOUT_MS ?? "45000", 10);
+const GATEWAY_READY_TIMEOUT_MS = Number.parseInt(process.env.OPENCLAW_GATEWAY_READY_TIMEOUT_MS ?? "120000", 10);
 
 // Always run the built-from-source CLI entry directly to avoid PATH/global-install mismatches.
 const OPENCLAW_ENTRY = process.env.OPENCLAW_ENTRY?.trim() || "/openclaw/dist/entry.js";
@@ -260,17 +260,29 @@ async function ensureGatewayRunning() {
   return { ok: true };
 }
 
-async function restartGateway() {
-  if (gatewayProc) {
-    try {
-      gatewayProc.kill("SIGTERM");
-    } catch {
-      // ignore
+async function stopGateway() {
+  if (!gatewayProc) return;
+  console.log("[gateway] stopping...");
+  try {
+    gatewayProc.kill("SIGTERM");
+    // Wait for the exit handler to clear gatewayProc
+    for (let i = 0; i < 20; i++) {
+      if (!gatewayProc) break;
+      await sleep(250);
     }
-    // Give it a moment to exit and release the port.
-    await sleep(750);
-    gatewayProc = null;
+    if (gatewayProc) {
+      console.warn("[gateway] did not exit after SIGTERM, sending SIGKILL");
+      gatewayProc.kill("SIGKILL");
+      await sleep(500);
+    }
+  } catch (err) {
+    console.warn(`[gateway] stop error: ${err}`);
   }
+  gatewayProc = null;
+}
+
+async function restartGateway() {
+  await stopGateway();
   return ensureGatewayRunning();
 }
 
@@ -733,6 +745,8 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
       });
     }
 
+    await stopGateway();
+
     fs.mkdirSync(STATE_DIR, { recursive: true });
     fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
 
@@ -1176,15 +1190,7 @@ app.post("/setup/api/reset", requireSetupAuth, async (_req, res) => {
   // Keep credentials/sessions/workspace by default.
   try {
     // Stop gateway to avoid running gateway + onboard concurrently on small Railway instances.
-    try {
-      if (gatewayProc) {
-        try { gatewayProc.kill("SIGTERM"); } catch {}
-        await sleep(750);
-        gatewayProc = null;
-      }
-    } catch {
-      // ignore
-    }
+    await stopGateway();
 
     const candidates = typeof resolveConfigCandidates === "function" ? resolveConfigCandidates() : [configPath()];
     for (const p of candidates) {
@@ -1295,11 +1301,7 @@ app.post("/setup/import", requireSetupAuth, async (req, res) => {
     }
 
     // Stop gateway before restore so we don't overwrite live files.
-    if (gatewayProc) {
-      try { gatewayProc.kill("SIGTERM"); } catch {}
-      await sleep(750);
-      gatewayProc = null;
-    }
+    await stopGateway();
 
     const buf = await readBodyBuffer(req, 250 * 1024 * 1024); // 250MB max
     if (!buf.length) return res.status(400).type("text/plain").send("Empty body\n");
