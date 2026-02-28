@@ -844,12 +844,13 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
           provider: (payload.customProviderId || "").trim() || undefined,
           model: (payload.customProviderModelId || "").trim() || undefined,
         };
-        const set = await runCmd(
+        // plugins.entries.telegram only accepts { enabled: true }
+        const setPlugin = await runCmd(
           OPENCLAW_NODE,
-          clawArgs(["config", "set", "--json", "plugins.entries.telegram", JSON.stringify(cfgObj)]),
+          clawArgs(["config", "set", "--json", "plugins.entries.telegram", JSON.stringify({ enabled: true })]),
         );
-        // Also write to legacy location for compatibility.
-        await runCmd(
+        // The full config goes into channels.telegram
+        const setChannel = await runCmd(
           OPENCLAW_NODE,
           clawArgs(["config", "set", "--json", "channels.telegram", JSON.stringify(cfgObj)]),
         );
@@ -859,7 +860,8 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
         // Best-effort: enable the telegram plugin explicitly (some builds require this even when configured).
         const plug = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "enable", "telegram"]));
 
-        extra += `\n[telegram config] exit=${set.code} (output ${set.output.length} chars)\n${set.output || "(no output)"}`;
+        extra += `\n[telegram plugin set] exit=${setPlugin.code} (output ${setPlugin.output.length} chars)`;
+        extra += `\n[telegram channel set] exit=${setChannel.code} (output ${setChannel.output.length} chars)`;
         extra += `\n[telegram verify] exit=${get.code} (output ${get.output.length} chars)\n${get.output || "(no output)"}`;
         extra += `\n[telegram plugin enable] exit=${plug.code} (output ${plug.output.length} chars)\n${plug.output || "(no output)"}`;
       }
@@ -881,19 +883,21 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
           provider: (payload.customProviderId || "").trim() || undefined,
           model: (payload.customProviderModelId || "").trim() || undefined,
         };
-        const set = await runCmd(
+        // plugins.entries.discord only accepts { enabled: true }
+        const setPlugin = await runCmd(
           OPENCLAW_NODE,
-          clawArgs(["config", "set", "--json", "plugins.entries.discord", JSON.stringify(cfgObj)]),
+          clawArgs(["config", "set", "--json", "plugins.entries.discord", JSON.stringify({ enabled: true })]),
         );
-        // Also write to legacy location for compatibility.
-        await runCmd(
+        // The full config goes into channels.discord
+        const setChannel = await runCmd(
           OPENCLAW_NODE,
           clawArgs(["config", "set", "--json", "channels.discord", JSON.stringify(cfgObj)]),
         );
 
         const get = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "plugins.entries.discord"]));
         const plug = await runCmd(OPENCLAW_NODE, clawArgs(["plugins", "enable", "discord"]));
-        extra += `\n[discord config] exit=${set.code} (output ${set.output.length} chars)\n${set.output || "(no output)"}`;
+        extra += `\n[discord plugin set] exit=${setPlugin.code} (output ${setPlugin.output.length} chars)`;
+        extra += `\n[discord channel set] exit=${setChannel.code} (output ${setChannel.output.length} chars)`;
         extra += `\n[discord verify] exit=${get.code} (output ${get.output.length} chars)\n${get.output || "(no output)"}`;
         extra += `\n[discord plugin enable] exit=${plug.code} (output ${plug.output.length} chars)\n${plug.output || "(no output)"}`;
       }
