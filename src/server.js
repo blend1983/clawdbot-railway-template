@@ -826,6 +826,8 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
           botToken: token,
           groupPolicy: "allowlist",
           streamMode: "partial",
+          provider: (payload.customProviderId || "").trim() || undefined,
+          model: (payload.customProviderModelId || "").trim() || undefined,
         };
         const set = await runCmd(
           OPENCLAW_NODE,
@@ -854,6 +856,8 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
           dm: {
             policy: "pairing",
           },
+          provider: (payload.customProviderId || "").trim() || undefined,
+          model: (payload.customProviderModelId || "").trim() || undefined,
         };
         const set = await runCmd(
           OPENCLAW_NODE,
